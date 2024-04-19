@@ -22,10 +22,10 @@ sealed class Plugin : BaseUnityPlugin
 
     public void OnEnable()
     {
-        On.RainWorld.OnModsInit += OnModsInit;
+        On.RainWorld.PostModsInit += PostModsInit;
     }
 
-    private void OnModsInit(On.RainWorld.orig_OnModsInit orig, RainWorld self)
+    private void PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
     {
         orig(self);
 
@@ -38,6 +38,14 @@ sealed class Plugin : BaseUnityPlugin
         On.GhostWorldPresence.GhostMode_AbstractRoom_Vector2 += GhostWorldPresence_GhostMode_AbstractRoom_Vector2;
         On.GhostWorldPresence.ctor += GhostWorldPresence_ctor;
         On.Room.Loaded += Room_Loaded;
+        On.RainWorldGame.ShutDownProcess += RainWorldGame_ShutDownProcess;
+    }
+
+    private void RainWorldGame_ShutDownProcess(On.RainWorldGame.orig_ShutDownProcess orig, RainWorldGame self)
+    {
+        orig(self);
+        echoRooms.Clear();
+        echoRegions.Clear();
     }
 
     private void Room_Loaded(On.Room.orig_Loaded orig, Room self)
@@ -58,6 +66,7 @@ sealed class Plugin : BaseUnityPlugin
             }
 
             self.roomSettings.placedObjects.Add(new PlacedObject(PlacedObject.Type.GhostSpot, null) { pos = pos });
+            Logger.LogDebug($"Placed at ({pos.x}, {pos.y})");
         }
         orig(self);
     }
@@ -81,8 +90,11 @@ sealed class Plugin : BaseUnityPlugin
 
     private float GhostWorldPresence_GhostMode_AbstractRoom_Vector2(On.GhostWorldPresence.orig_GhostMode_AbstractRoom_Vector2 orig, GhostWorldPresence self, AbstractRoom testRoom, Vector2 worldPos)
     {
-        var dist = Custom.RestrictInRect(worldPos, FloatRect.MakeFromVector2(self.world.RoomToWorldPos(default, self.ghostRoom.index), self.world.RoomToWorldPos(self.ghostRoom.size.ToVector2() * 20f, self.ghostRoom.index))); ;
-        return Mathf.Pow(Mathf.InverseLerp(4000f, 500f, Vector2.Distance(worldPos, dist)), 2f) * Custom.LerpMap(self.DegreesOfSeparation(testRoom), 1f, 3f, 0.6f, 0.15f) * ((testRoom.layer == self.ghostRoom.layer) ? 1f : 0.6f);
+        int degreesSep = self.DegreesOfSeparation(testRoom);
+        if (degreesSep == -1) return 0f;
+
+        var dist = Custom.RestrictInRect(worldPos, FloatRect.MakeFromVector2(self.world.RoomToWorldPos(default, self.ghostRoom.index), self.world.RoomToWorldPos(self.ghostRoom.size.ToVector2() * 20f, self.ghostRoom.index)));
+        return Mathf.Pow(Mathf.InverseLerp(4000f, 500f, Vector2.Distance(worldPos, dist)), 2f) * Custom.LerpMap(degreesSep, 1f, 3f, 0.6f, 0.15f) * ((testRoom.layer == self.ghostRoom.layer) ? 1f : 0.6f);
     }
 
     private GhostID GhostWorldPresence_GetGhostID(On.GhostWorldPresence.orig_GetGhostID orig, string regionName)
@@ -135,13 +147,20 @@ sealed class Plugin : BaseUnityPlugin
                 {
                     room = roomList[Random.Range(0, roomList.Length)];
                 }
-                while ((room.ToUpperInvariant().StartsWith("OFFSCREEN") || i++ < roomList.Length / 4) && !regionList.Any(x => room.ToUpperInvariant().StartsWith(x.ToUpperInvariant())));
+                while ((room.ToUpperInvariant().Contains("OFFSCREEN") || i++ < roomList.Length / 4) && !regionList.Any(x => room.ToUpperInvariant().StartsWith(x.ToUpperInvariant())));
 
                 var region = room.Split(['_'], 2)[0];
                 echoRooms[room] = new GhostID(ghost, false);
                 echoRegions[region] = room;
                 regionList.Remove(region);
-                Logger.LogDebug(ghost + " echo: " + room);
+
+                // Debug info
+                int visited = 0;
+                if (!game.GetStorySession.saveState.deathPersistentSaveData.ghostsTalkedTo.TryGetValue(echoRooms[room], out visited))
+                {
+                    visited = game.GetStorySession.saveState.deathPersistentSaveData.ghostsTalkedToUnrecognized.Any(x => x == ghost) ? 1 : 0;
+                }
+                Logger.LogDebug($"{ghost} echo: {room} (visited: {visited})");
             }
         }
 
