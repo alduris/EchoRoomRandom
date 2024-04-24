@@ -33,12 +33,20 @@ sealed class Plugin : BaseUnityPlugin
         init = true;
 
         // Hooks
-        On.OverWorld.ctor += OverWorld_ctor;
-        On.GhostWorldPresence.GetGhostID += GhostWorldPresence_GetGhostID;
-        On.GhostWorldPresence.GhostMode_AbstractRoom_Vector2 += GhostWorldPresence_GhostMode_AbstractRoom_Vector2;
-        On.GhostWorldPresence.ctor += GhostWorldPresence_ctor;
-        On.Room.Loaded += Room_Loaded;
-        On.RainWorldGame.ShutDownProcess += RainWorldGame_ShutDownProcess;
+        try
+        {
+            On.OverWorld.ctor += OverWorld_ctor;
+            On.GhostWorldPresence.GetGhostID += GhostWorldPresence_GetGhostID;
+            On.GhostWorldPresence.GhostMode_AbstractRoom_Vector2 += GhostWorldPresence_GhostMode_AbstractRoom_Vector2;
+            On.GhostWorldPresence.ctor += GhostWorldPresence_ctor;
+            On.Room.Loaded += Room_Loaded;
+            On.RainWorldGame.ShutDownProcess += RainWorldGame_ShutDownProcess;
+            Logger.LogInfo("Ready!");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex);
+        }
     }
 
     private void RainWorldGame_ShutDownProcess(On.RainWorldGame.orig_ShutDownProcess orig, RainWorldGame self)
@@ -155,10 +163,9 @@ sealed class Plugin : BaseUnityPlugin
                 regionList.Remove(region);
 
                 // Debug info
-                int visited = 0;
-                if (!game.GetStorySession.saveState.deathPersistentSaveData.ghostsTalkedTo.TryGetValue(echoRooms[room], out visited))
+                if (!game.GetStorySession.saveState.deathPersistentSaveData.ghostsTalkedTo.TryGetValue(echoRooms[room], out int visited))
                 {
-                    visited = game.GetStorySession.saveState.deathPersistentSaveData.ghostsTalkedToUnrecognized.Any(x => x == ghost) ? 1 : 0;
+                    visited = game.GetStorySession.saveState.deathPersistentSaveData.ghostsTalkedToUnrecognized.Any(x => x == ghost) ? 2 : 0;
                 }
                 Logger.LogDebug($"{ghost} echo: {room} (visited: {visited})");
             }
