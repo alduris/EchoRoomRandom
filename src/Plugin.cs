@@ -135,7 +135,7 @@ sealed class Plugin : BaseUnityPlugin
         if (game.IsStorySession)
         {
             // Get regions and rooms
-            var regionList = SlugcatStats.SlugcatStoryRegions(game.StoryCharacter);
+            var regionList = SlugcatStats.SlugcatStoryRegions(game.StoryCharacter).Concat(SlugcatStats.SlugcatOptionalRegions(game.StoryCharacter)).ToList();
             if (regionList.Count == 0)
             {
                 regionList = Region.GetFullRegionOrder();
