@@ -1,0 +1,17 @@
+{
+  "Title": "Echo Room Randomizer",
+  "Description": "Randomizes the rooms echoes spawn in every cycle.",
+  "ID": "alduris.echorooms",
+  "Version": "1.0",
+  "TargetGameVersion": "v1.9.15b",
+  "Requirements": "",
+  "RequirementNames": "",
+  "Authors": "Alduris",
+  "Visibility": "Public",
+  "Tags": [
+    "Game Mechanics"
+  ],
+  "WorkshopID": 3252552548,
+  "UploadFilesOnly": false,
+  "UploadThumbnail": true
+}
