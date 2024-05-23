@@ -98,6 +98,8 @@ sealed class Plugin : BaseUnityPlugin
 
     private float GhostWorldPresence_GhostMode_AbstractRoom_Vector2(On.GhostWorldPresence.orig_GhostMode_AbstractRoom_Vector2 orig, GhostWorldPresence self, AbstractRoom testRoom, Vector2 worldPos)
     {
+        // int degreesSep = Util.DegreesOfSeparation(self.ghostRoom, testRoom);
+        if (self.ghostRoom == null) return 0f;
         int degreesSep = self.DegreesOfSeparation(testRoom);
         if (degreesSep == -1) return 0f;
 
