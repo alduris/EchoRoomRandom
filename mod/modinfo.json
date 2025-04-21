@@ -1,10 +1,10 @@
 ﻿{
   "id": "alduris.echorooms",
   "name": "Echo Room Randomizer",
-  "version": "1.0",
+  "version": "1.1",
   "authors": "Alduris",
   "description": "Randomizes the rooms echoes spawn in every cycle.",
-  "tags": ["Game Mechanics"],
+  "tags": ["Base", "Downpour", "Watcher", "Randomizer", "Game Mechanics"],
   "requirements": [],
   "requirements_names": [],
   "checksum_override_version": false

@@ -5,6 +5,7 @@ using System.Security.Permissions;
 using BepInEx;
 using RWCustom;
 using UnityEngine;
+using Watcher;
 using GhostID = GhostWorldPresence.GhostID;
 using Random = UnityEngine.Random;
 
@@ -32,13 +33,15 @@ sealed class Plugin : BaseUnityPlugin
         if (init) return;
         init = true;
 
+        MachineConnector.SetRegisteredOI("alduris.echorooms", new Options());
+
         // Hooks
         try
         {
             On.OverWorld.ctor += OverWorld_ctor;
             On.GhostWorldPresence.GetGhostID += GhostWorldPresence_GetGhostID;
             On.GhostWorldPresence.GhostMode_AbstractRoom_Vector2 += GhostWorldPresence_GhostMode_AbstractRoom_Vector2;
-            On.GhostWorldPresence.ctor += GhostWorldPresence_ctor;
+            On.GhostWorldPresence.ctor_World_GhostID_int += GhostWorldPresence_ctor;
             On.Room.Loaded += Room_Loaded;
             On.RainWorldGame.ShutDownProcess += RainWorldGame_ShutDownProcess;
             Logger.LogInfo("Ready!");
@@ -52,6 +55,7 @@ sealed class Plugin : BaseUnityPlugin
     private void RainWorldGame_ShutDownProcess(On.RainWorldGame.orig_ShutDownProcess orig, RainWorldGame self)
     {
         orig(self);
+        if (Options.RandomModeConfig.Value != Options.RandomMode.EveryCycle) return;
         echoRooms.Clear();
         echoRegions.Clear();
     }
@@ -79,9 +83,9 @@ sealed class Plugin : BaseUnityPlugin
         orig(self);
     }
 
-    private void GhostWorldPresence_ctor(On.GhostWorldPresence.orig_ctor orig, GhostWorldPresence self, World world, GhostID ghostID)
+    private void GhostWorldPresence_ctor(On.GhostWorldPresence.orig_ctor_World_GhostID_int orig, GhostWorldPresence self, World world, GhostID ghostID, int spinningTopSpawn)
     {
-        orig(self, world, ghostID);
+        orig(self, world, ghostID, spinningTopSpawn);
         if (echoRooms.Count > 0)
         {
             foreach (var kv in echoRooms)
@@ -98,6 +102,8 @@ sealed class Plugin : BaseUnityPlugin
 
     private float GhostWorldPresence_GhostMode_AbstractRoom_Vector2(On.GhostWorldPresence.orig_GhostMode_AbstractRoom_Vector2 orig, GhostWorldPresence self, AbstractRoom testRoom, Vector2 worldPos)
     {
+        if (ModManager.Watcher && testRoom.world?.game?.StoryCharacter == WatcherEnums.SlugcatStatsName.Watcher) return orig(self, testRoom, worldPos);
+
         // int degreesSep = Util.DegreesOfSeparation(self.ghostRoom, testRoom);
         if (self.ghostRoom == null) return 0f;
         int degreesSep = self.DegreesOfSeparation(testRoom);
@@ -130,12 +136,14 @@ sealed class Plugin : BaseUnityPlugin
 
     private static readonly Dictionary<string, string> echoRegions = [];
     private static readonly Dictionary<string, GhostID> echoRooms = [];
+    private bool needsToSwap = true;
     private void OverWorld_ctor(On.OverWorld.orig_ctor orig, OverWorld self, RainWorldGame game)
     {
-        if (game.IsStorySession)
+        if (game.IsStorySession && needsToSwap && (!ModManager.Watcher || game.StoryCharacter != WatcherEnums.SlugcatStatsName.Watcher))
         {
+            if (Options.RandomModeConfig.Value != Options.RandomMode.EveryCycle) needsToSwap = false;
             // Get regions and rooms
-            var regionList = SlugcatStats.SlugcatStoryRegions(game.StoryCharacter).Concat(SlugcatStats.SlugcatOptionalRegions(game.StoryCharacter)).ToList();
+            var regionList = GetSlugcatRegions(game.StoryCharacter);
             if (regionList.Count == 0)
             {
                 regionList = Region.GetFullRegionOrder();
@@ -149,7 +157,7 @@ sealed class Plugin : BaseUnityPlugin
 
             foreach (var ghost in GhostID.values.entries)
             {
-                if (ghost == "NoGhost") continue;
+                if (ghost == GhostID.NoGhost.value || (ModManager.Watcher && ghost == WatcherEnums.GhostID.SpinningTop.value)) continue;
 
                 string room;
                 int i = 0;
@@ -175,6 +183,20 @@ sealed class Plugin : BaseUnityPlugin
 
         // We have to run before orig because orig calls a method we hooked
         orig(self, game);
+
+        static List<string> GetSlugcatRegions(SlugcatStats.Name storyCharacter)
+        {
+            /*if (ModManager.Watcher && storyCharacter == WatcherEnums.SlugcatStatsName.Watcher)
+            {
+                return [
+                    "WBLA", "WPTA", "WRRA", "WVWA",
+                    "WTDA", "WTDB", "WRFA", "WRFB", "WSKA", "WSKB", "WSKC", "WSKD",
+                    "WARA", "WARB", "WARC", "WARD", "WARE", "WARF", "WARG",
+                    "WAUA", "WRSA",
+                    "WSSR", "WSUR", "WHIR", "WDSR", "WGWR", "WORA"];
+            }*/
+            return [.. SlugcatStats.SlugcatStoryRegions(storyCharacter).Union(SlugcatStats.SlugcatOptionalRegions(storyCharacter))];
+        }
     }
 
 }
